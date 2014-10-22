@@ -121,28 +121,35 @@ func (s *Server) ListTables() ([]string, error) {
 
 	query := NewEmptyQuery()
 
-	jsonResponse, err := s.queryServer(target("ListTables"), query)
+	for {
+		jsonResponse, err := s.queryServer(target("ListTables"), query)
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	json, err := simplejson.NewJson(jsonResponse)
+		json, err := simplejson.NewJson(jsonResponse)
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	response, err := json.Get("TableNames").Array()
+		response, err := json.Get("TableNames").Array()
+		if err != nil {
+			message := fmt.Sprintf("Unexpected response %s", jsonResponse)
+			return nil, errors.New(message)
+		}
 
-	if err != nil {
-		message := fmt.Sprintf("Unexpected response %s", jsonResponse)
-		return nil, errors.New(message)
-	}
+		for _, value := range response {
+			if t, ok := (value).(string); ok {
+				tables = append(tables, t)
+			}
+		}
 
-	for _, value := range response {
-		if t, ok := (value).(string); ok {
-			tables = append(tables, t)
+		if lastEvaluatedTable, err := json.Get("LastEvaluatedTableName").String(); err == nil {
+			query.buffer = msi{"ExclusiveStartTableName": lastEvaluatedTable}
+		} else {
+			break
 		}
 	}
 
