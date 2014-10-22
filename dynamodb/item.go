@@ -170,6 +170,10 @@ func (t *Table) ConditionalPutItem(hashKey, rangeKey string, attributes, expecte
 	return t.putItem(hashKey, rangeKey, attributes, expected)
 }
 
+func (t *Table) ConditionalPutItemWithConditionExpression(hashKey, rangeKey string, attributes []Attribute, condition *ConditionExpression) (bool, error) {
+	return t.putItemWithConditionExpression(hashKey, rangeKey, attributes, condition)
+}
+
 func (t *Table) RunPutItemQuery(q *Query) (bool, error) {
 	jsonResponse, err := t.Server.queryServer(target("PutItem"), q)
 
@@ -198,6 +202,24 @@ func (t *Table) putItem(hashKey, rangeKey string, attributes, expected []Attribu
 	q.AddItem(attributes)
 	if expected != nil {
 		q.AddExpected(expected)
+	}
+
+	return t.RunPutItemQuery(q)
+}
+
+func (t *Table) putItemWithConditionExpression(hashKey, rangeKey string, attributes []Attribute, condition *ConditionExpression) (bool, error) {
+	if len(attributes) == 0 {
+		return false, errors.New("At least one attribute is required.")
+	}
+
+	q := NewQuery(t)
+
+	keys := t.Key.Clone(hashKey, rangeKey)
+	attributes = append(attributes, keys...)
+
+	q.AddItem(attributes)
+	if condition != nil {
+		q.AddConditionExpression(condition)
 	}
 
 	return t.RunPutItemQuery(q)
