@@ -25,6 +25,7 @@ package sns
 // BUG(niemeyer): Message.SNS must be dropped.
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -121,7 +122,7 @@ func (sns *SNS) ListTopics(NextToken *string) (resp *ListTopicsResp, err error) 
 	if NextToken != nil {
 		params["NextToken"] = *NextToken
 	}
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 }
 
@@ -132,7 +133,7 @@ func (sns *SNS) CreateTopic(Name string) (resp *CreateTopicResp, err error) {
 	resp = &CreateTopicResp{}
 	params := makeParams("CreateTopic")
 	params["Name"] = Name
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -143,7 +144,7 @@ func (sns *SNS) DeleteTopic(topic Topic) (resp *DeleteTopicResp, err error) {
 	resp = &DeleteTopicResp{}
 	params := makeParams("DeleteTopic")
 	params["TopicArn"] = topic.TopicArn
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -163,7 +164,7 @@ func (sns *SNS) ListSubscriptions(NextToken *string) (resp *ListSubscriptionsRes
 	if NextToken != nil {
 		params["NextToken"] = *NextToken
 	}
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 }
 
@@ -174,7 +175,7 @@ func (sns *SNS) GetTopicAttributes(TopicArn string) (resp *GetTopicAttributesRes
 	resp = &GetTopicAttributesResp{}
 	params := makeParams("GetTopicAttributes")
 	params["TopicArn"] = TopicArn
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 }
 
@@ -218,7 +219,7 @@ func (sns *SNS) Publish(options *PublishOpt) (resp *PublishResp, err error) {
 		params["TargetArn"] = options.TargetArn
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -241,7 +242,7 @@ func (sns *SNS) SetTopicAttributes(AttributeName, AttributeValue, TopicArn strin
 	params["AttributeValue"] = AttributeValue
 	params["TopicArn"] = TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -261,7 +262,7 @@ func (sns *SNS) Subscribe(Endpoint, Protocol, TopicArn string) (resp *SubscribeR
 	params["Protocol"] = Protocol
 	params["TopicArn"] = TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -278,7 +279,7 @@ func (sns *SNS) Unsubscribe(SubscriptionArn string) (resp *UnsubscribeResponse, 
 
 	params["SubscriptionArn"] = SubscriptionArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -307,7 +308,7 @@ func (sns *SNS) ConfirmSubscription(options *ConfirmSubscriptionOpt) (resp *Conf
 	params["Token"] = options.Token
 	params["TopicArn"] = options.TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -335,7 +336,7 @@ func (sns *SNS) AddPermission(permissions []Permission, Label, TopicArn string) 
 	params["Label"] = Label
 	params["TopicArn"] = TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -353,7 +354,7 @@ func (sns *SNS) RemovePermission(Label, TopicArn string) (resp *RemovePermission
 	params["Label"] = Label
 	params["TopicArn"] = TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -380,7 +381,7 @@ func (sns *SNS) ListSubscriptionByTopic(options *ListSubscriptionByTopicOpt) (re
 
 	params["TopicArn"] = options.TopicArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 }
 
@@ -411,7 +412,7 @@ func (sns *SNS) CreatePlatformApplication(options *PlatformApplicationOpt) (resp
 		params[fmt.Sprintf("Attributes.entry.%s.value", strconv.Itoa(i+1))] = attr.Value
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 
 	return
 
@@ -444,7 +445,7 @@ func (sns *SNS) CreatePlatformEndpoint(options *PlatformEndpointOpt) (resp *Crea
 		params["CustomUserData"] = options.CustomUserData
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 
 	return
 }
@@ -462,7 +463,7 @@ func (sns *SNS) DeleteEndpoint(endpointArn string) (resp *DeleteEndpointResponse
 
 	params["EndpointArn"] = endpointArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 
 	return
 }
@@ -481,7 +482,7 @@ func (sns *SNS) DeletePlatformApplication(platformApplicationArn string) (resp *
 
 	params["PlatformApplicationArn"] = platformApplicationArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 
 	return
 }
@@ -501,7 +502,7 @@ func (sns *SNS) GetEndpointAttributes(endpointArn string) (resp *GetEndpointAttr
 
 	params["EndpointArn"] = endpointArn
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 
 	return
 }
@@ -525,7 +526,7 @@ func (sns *SNS) GetPlatformApplicationAttributes(platformApplicationArn, nextTok
 		params["NextToken"] = nextToken
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 
 	return
 }
@@ -554,7 +555,7 @@ func (sns *SNS) ListEndpointsByPlatformApplication(platformApplicationArn, nextT
 		params["NextToken"] = nextToken
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 
 }
@@ -581,7 +582,7 @@ func (sns *SNS) ListPlatformApplications(nextToken string) (resp *ListPlatformAp
 		params["NextToken"] = nextToken
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("GET", nil, nil, params, resp)
 	return
 }
 
@@ -608,7 +609,7 @@ func (sns *SNS) SetEndpointAttributes(options *SetEndpointAttributesOpt) (resp *
 		params[fmt.Sprintf("Attributes.entry.%s.value", strconv.Itoa(i+1))] = attr.Value
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -635,7 +636,7 @@ func (sns *SNS) SetPlatformApplicationAttributes(options *SetPlatformApplication
 		params[fmt.Sprintf("Attributes.entry.%s.value", strconv.Itoa(i+1))] = attr.Value
 	}
 
-	err = sns.query(nil, nil, params, resp)
+	err = sns.query("POST", nil, nil, params, resp)
 	return
 }
 
@@ -655,30 +656,35 @@ type xmlErrors struct {
 	Errors    []Error `xml:"Errors>Error"`
 }
 
-func (sns *SNS) query(topic *Topic, message *Message, params map[string]string, resp interface{}) error {
+func (sns *SNS) query(method string, topic *Topic, message *Message, params map[string]string, resp interface{}) error {
 	params["Timestamp"] = time.Now().UTC().Format(time.RFC3339)
-	u, err := url.Parse(sns.Region.SNSEndpoint)
+	url, err := url.Parse(sns.Region.SNSEndpoint)
 	if err != nil {
 		return err
 	}
+	sign(sns.Auth, method, "/", params, url.Host)
 
-	sign(sns.Auth, "GET", "/", params, u.Host)
-	u.RawQuery = multimap(params).Encode()
-	r, err := http.Get(u.String())
+	var request *http.Request
+	if method == "POST" {
+		body := bytes.NewBufferString(multimap(params).Encode())
+		request, _ = http.NewRequest("POST", url.String(), body)
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	} else {
+		url.RawQuery = multimap(params).Encode()
+		request, _ = http.NewRequest("GET", url.String(), nil)
+	}
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	defer response.Body.Close()
+
 	if err != nil {
 		return err
+	} else if response.StatusCode != 200 {
+		return buildError(response)
+	} else {
+		return xml.NewDecoder(response.Body).Decode(resp)
 	}
-	defer r.Body.Close()
-
-	//dump, _ := http.DumpResponse(r, true)
-	//println("DUMP:\n", string(dump))
-	//return nil
-
-	if r.StatusCode != 200 {
-		return buildError(r)
-	}
-	err = xml.NewDecoder(r.Body).Decode(resp)
-	return err
 }
 
 func buildError(r *http.Response) error {
