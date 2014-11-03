@@ -13,6 +13,21 @@ const (
 
 	COUNTER_UP   = "UP"
 	COUNTER_DOWN = "DOWN"
+
+	// If ReturnValues is not specified, or if its value is NONE, then nothing is returned. (This setting is the default for ReturnValues.)
+	RETURN_VALUES_NONE = "NONE"
+
+	// If UpdateItem overwrote an attribute name-value pair, then the content of the old item is returned.
+	RETURN_VALUES_ALL_OLD = "ALL_OLD"
+
+	// The old versions of only the updated attributes are returned.
+	RETURN_VALUES_UPDATED_OLD = "UPDATED_OLD"
+
+	// All of the attributes of the new version of the item are returned.
+	RETURN_VALUES_ALL_NEW = "ALL_NEW"
+
+	// The new versions of only the updated attributes are returned.
+	RETURN_VALUES_UPDATED_NEW = "UPDATED_NEW"
 )
 
 type msi map[string]interface{}
@@ -499,4 +514,9 @@ func (q *Query) appendExpressionAttributeValues(attributes []Attribute) {
 		eaMsi[k] = v
 	}
 	q.buffer["ExpressionAttributeValues"] = eaMsi
+}
+
+// Append ReturnValues parameter
+func (q *Query) AddReturnValues(returnValues string) {
+	q.buffer["ReturnValues"] = returnValues
 }

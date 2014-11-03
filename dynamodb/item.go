@@ -280,18 +280,18 @@ func (t *Table) ConditionalDeleteAttributes(key *Key, attributes, expected []Att
 }
 
 // Update attributes with UpdateExpression - see more http://goo.gl/PB6RXt
-func (t *Table) UpdateAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute) (bool, error) {
-	return t.updateItemWithUpdateExpression(key, attributes, nil, "SET")
+func (t *Table) UpdateAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, returnValues string) (bool, map[string]*Attribute, error) {
+	return t.updateItemWithUpdateExpression(key, attributes, nil, "SET", returnValues)
 }
 
 // Update attributes with UpdateExpression and ConditionExpression - see more http://goo.gl/PB6RXt
-func (t *Table) ConditionalUpdateAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, condition *ConditionExpression) (bool, error) {
-	return t.updateItemWithUpdateExpression(key, attributes, condition, "SET")
+func (t *Table) ConditionalUpdateAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, condition *ConditionExpression, returnValues string) (bool, map[string]*Attribute, error) {
+	return t.updateItemWithUpdateExpression(key, attributes, condition, "SET", returnValues)
 }
 
 // Delete attributes with UpdateExpression - see more http://goo.gl/PB6RXt
-func (t *Table) DeleteAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute) (bool, error) {
-	return t.updateItemWithUpdateExpression(key, attributes, nil, "REMOVE")
+func (t *Table) DeleteAttributesWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, returnValues string) (bool, map[string]*Attribute, error) {
+	return t.updateItemWithUpdateExpression(key, attributes, nil, "REMOVE", returnValues)
 }
 
 func (t *Table) modifyAttributes(key *Key, attributes, expected []Attribute, action string) (bool, error) {
@@ -322,10 +322,10 @@ func (t *Table) modifyAttributes(key *Key, attributes, expected []Attribute, act
 	return true, nil
 }
 
-func (t *Table) updateItemWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, condition *ConditionExpression, action string) (bool, error) {
+func (t *Table) updateItemWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, condition *ConditionExpression, action, returnValues string) (bool, map[string]*Attribute, error) {
 
 	if len(attributes) == 0 {
-		return false, errors.New("At least one attribute is required.")
+		return false, nil, errors.New("At least one attribute is required.")
 	}
 
 	q := NewQuery(t)
@@ -334,21 +334,40 @@ func (t *Table) updateItemWithUpdateExpression(key *Key, attributes []UpdateExpr
 
 	if condition != nil {
 		if err := q.AddConditionExpression(condition); err != nil {
-			return false, err
+			return false, nil, err
 		}
+	}
+
+	if returnValues != "" {
+		q.AddReturnValues(returnValues)
 	}
 
 	jsonResponse, err := t.Server.queryServer(target("UpdateItem"), q)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
-	_, err = simplejson.NewJson(jsonResponse)
+	json, err := simplejson.NewJson(jsonResponse)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
-	return true, nil
+	if returnValues != "" && returnValues != "NONE" {
+		itemJson, ok := json.CheckGet("Attributes")
+		if !ok {
+			// We got an empty attributes list from amz.
+			return false, nil, fmt.Errorf("Returned attribute list is empty, despite ReturnValues=%s required some of them", jsonResponse)
+		}
+
+		item, err := itemJson.Map()
+		if err != nil {
+			return false, nil, fmt.Errorf("Unexpected response %s", jsonResponse)
+		}
+
+		return true, parseAttributes(item), nil
+	} else {
+		return true, nil, nil
+	}
 }
 
 func parseAttributes(s map[string]interface{}) map[string]*Attribute {
