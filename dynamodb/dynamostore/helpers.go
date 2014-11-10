@@ -11,8 +11,11 @@ import (
 )
 
 const (
-	NullString = "NULL"
-	timePrefix = "time_"
+	NullString       = "NULL"
+	timePrefix       = "time_"
+	binaryPrefix     = "B::"
+	numericPrefix    = "N::"
+	binaryNullString = "B::NULL"
 )
 
 func MakeAttrNotFoundErr(attr string) error {
@@ -54,9 +57,18 @@ func MakeFloat64Attr(name string, value float64) dynamodb.Attribute {
 	return *dynamodb.NewNumericAttribute(name, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
+func MakeFloat64PrefixedAttr(name string, value float64) dynamodb.Attribute {
+	return *dynamodb.NewStringAttribute(name, numericPrefix+strconv.FormatFloat(value, 'f', -1, 64))
+}
+
 func MakeBinaryAttr(name string, value []byte) dynamodb.Attribute {
 	b64val := base64.StdEncoding.EncodeToString(value)
 	return *dynamodb.NewBinaryAttribute(name, b64val)
+}
+
+func MakeBinaryPrefixedAttr(name string, value []byte) dynamodb.Attribute {
+	b64val := bytes.NewBuffer(value).String()
+	return *dynamodb.NewStringAttribute(name, binaryPrefix+b64val)
 }
 
 func MakeTimeTimeAttr(name string, value time.Time) dynamodb.Attribute {
@@ -191,5 +203,42 @@ func GetTimePrefixedAttr(name string, attrs map[string]*dynamodb.Attribute) (t t
 }
 
 func IsTimePrefixedAttr(attr *dynamodb.Attribute) bool {
-	return strings.LastIndex(attr.Name, timePrefix) == 0
+	return strings.LastIndex(attr.Value, timePrefix) == 0
+}
+
+func GetBinaryPrefixedAttr(name string, attrs map[string]*dynamodb.Attribute) ([]byte, error) {
+	if val, ok := attrs[name]; !ok {
+		return nil, MakeAttrNotFoundErr(name)
+	} else {
+		if val.Value == binaryNullString {
+			return []byte{}, nil
+		} else {
+			pv := strings.TrimPrefix(val.Value, binaryPrefix)
+			return bytes.NewBufferString(pv).Bytes(), nil
+		}
+	}
+}
+
+func IsBinaryPrefixedAttr(attr *dynamodb.Attribute) bool {
+	return strings.HasPrefix(attr.Value, binaryPrefix)
+}
+
+func GetFloat64PrefixedAttr(name string, attrs map[string]*dynamodb.Attribute) (v float64, err error) {
+	var v64 float64
+	if val, ok := attrs[name]; !ok {
+		err = MakeAttrNotFoundErr(name)
+		return
+	} else {
+
+		if v64, err = strconv.ParseFloat(strings.TrimPrefix(val.Value, numericPrefix), 64); err != nil {
+			err = MakeAttrInvalidErr(name, val.Value)
+		} else {
+			return v64, nil
+		}
+		return
+	}
+}
+
+func IsFloat64PrefixedAttr(attr *dynamodb.Attribute) bool {
+	return strings.HasPrefix(attr.Value, numericPrefix)
 }
