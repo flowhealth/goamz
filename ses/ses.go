@@ -57,6 +57,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"github.com/flowhealth/goamz/aws"
 	"io/ioutil"
@@ -137,9 +138,20 @@ func (s *Server) sesGet(data url.Values) (string, error) {
 	resultbody, _ := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 
-	if r.StatusCode != 200 {
-		return "", fmt.Errorf("error, status = %d; response = %s", r.StatusCode, resultbody)
+	if r.StatusCode != http.StatusOK {
+		return "", s.buildError(resultbody)
 	}
 
 	return string(resultbody), nil
+}
+
+func (s *Server) buildError(data []byte) error {
+	errors := aws.ErrorResponse{}
+	xml.Unmarshal(data, &errors)
+
+	var err aws.Error
+	err = errors.Errors
+	err.RequestId = errors.RequestId
+
+	return &err
 }
