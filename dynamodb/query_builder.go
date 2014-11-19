@@ -345,7 +345,6 @@ func (ca *ConditionExpressionAttribute) build(expressionValuesPrefix string) (co
 		singleExpressionValue()
 	case "attribute_exists", "attribute_not_exists":
 		condition = fmt.Sprintf("%s(%s)", ca.Operator, ca.Name)
-		singleExpressionValue()
 	case "begins_with", "contains":
 		condition = fmt.Sprintf("%s(%s, %s%s)", ca.Operator, ca.Name, expressionValuesPrefix, ca.Name)
 		singleExpressionValue()
