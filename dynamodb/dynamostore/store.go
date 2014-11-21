@@ -1,12 +1,11 @@
 package dynamostore
 
 import (
-	"fmt"
-	"github.com/flowhealth/glog"
 	"github.com/flowhealth/goamz/aws"
 	"github.com/flowhealth/goamz/dynamodb"
 	"github.com/flowhealth/goannoying"
 	"github.com/flowhealth/gocontract/contract"
+	log "github.com/flowhealth/logrus"
 	"time"
 )
 
@@ -103,49 +102,50 @@ func keyAttrTableDescription(name string, readCapacity, writeCapacity int64) *dy
 }
 
 func (self *TKeyAttrStore) findTableByName(name string) bool {
-	glog.V(5).Infof("Searching for table %s in table list", name)
+	log.WithField("table", name).Debug("Searching table")
 	tables, err := self.dynamoServer.ListTables()
-	glog.V(5).Infof("Got table list: %v", tables)
+	log.WithField("talbes", tables).Debug("Got table list")
 	contract.RequireNoErrorf(err, "Failed to lookup table %v", err)
 	for _, t := range tables {
 		if t == name {
-			glog.V(5).Infof("Found table %s", name)
+			log.WithField("table", name).Debug("Found table")
 			return true
 		}
 	}
-	glog.V(5).Infof("Table %s wasnt found", name)
+	log.WithField("table", name).Debug("Table isn't found")
 	return false
 }
 
 func (self *TKeyAttrStore) Init() *TError {
 	tableName := self.tableDesc.TableName
-	glog.V(3).Infof("Initializing KeyAttrStore(%s) table", tableName)
+	log.WithField("table", tableName).Debug("Initializing Store")
 	tableExists := self.findTableByName(tableName)
 	if tableExists {
-		glog.V(3).Infof("KeyAttrStore table '%s' exists, skipping init", tableName)
-		glog.V(3).Infof("Waiting until table '%s' becomes active", tableName)
+		log.WithField("table", tableName).Debug("Table exists, skipping init")
 		self.waitUntilTableIsActive(tableName)
-		glog.V(3).Infof("KeyAttrStore table '%s' is active", tableName)
+		log.WithField("table", tableName).Debug("Table is active")
 		return nil
 	} else {
-		glog.Infof("Creating KeyAttrStore table '%s'", tableName)
+		log.WithField("table", tableName).Debug("Creating Store")
 		status, err := self.dynamoServer.CreateTable(*self.tableDesc)
 		if err != nil {
-			glog.Fatalf("Unexpected error: %s during KeyAttrStore table intialization, cannot proceed", err.Error())
+			log.WithField("error", err.Error()).Fatal("Table intialization, cannot proceed")
 			return InitGeneralErr
 		}
 		if status == TableStatusCreating {
-			glog.V(3).Infof("Waiting until KeyAttrStore table '%s' becomes active", tableName)
+			log.WithField("table", tableName).Debug("Waiting until table becomes active")
 			self.waitUntilTableIsActive(tableName)
-			glog.V(3).Infof("KeyAttrStore table '%s' become active", tableName)
+			log.WithField("table", tableName).Debug("Table become active")
 			return nil
 		}
 		if status == TableStatusActive {
-			glog.V(3).Infof("KeyAttrStore table '%s' is active", tableName)
+			log.WithField("table", tableName).Debug("Table is active")
 			return nil
 		}
-		err = fmt.Errorf("Unexpected status: %s during KeyAttrStore table intialization, cannot proceed", status)
-		glog.Fatal(err)
+		log.WithFields(log.Fields{
+			"table":  tableName,
+			"status": status,
+		}).Fatal("Table intialization, cannot proceed")
 		return InitUnknownStatusErr
 	}
 }
@@ -166,45 +166,50 @@ func (self *TKeyAttrStore) waitUntilTableIsActive(table string) {
 		return
 	}, checkInterval, checkTimeout)
 	if !ok {
-		glog.Fatalf("Failed with: %s", err.Error())
+		log.WithField("error", err.Error()).Fatal("Wait until table is active")
 	}
 }
 
 func (self *TKeyAttrStore) Destroy() *TError {
-	glog.Info("Destroying tables")
+	log.Info("Destroying tables")
 	tableExists := self.findTableByName(self.tableDesc.TableName)
 	if !tableExists {
-		glog.Infof("Table %s doesn't exists, skipping deletion", self.tableDesc.TableName)
+		log.WithField("table", self.tableDesc.TableName).Info("Table doesn't exists, skipping deletion")
 		return nil
 	} else {
 		_, err := self.dynamoServer.DeleteTable(*self.tableDesc)
 		if err != nil {
-			glog.Fatal(err)
+			log.WithFields(log.Fields{
+				"table": self.tableDesc.TableName,
+				"error": err.Error(),
+			}).Fatal("Can't destroy table")
 			return DestroyGeneralErr
 		}
-		glog.Infof("Table %s deleted successfully", self.tableDesc.TableName)
+		log.WithField("table", self.tableDesc.TableName).Debug("Table deleted successfully")
 	}
 	return nil
 }
 
 func (self *TKeyAttrStore) Delete(key string) *TError {
-	glog.V(5).Infof("Deleting item with key : %s", key)
+	log.WithField("key", key).Debug("Deleting item")
 	ok, err := self.table.DeleteItem(&dynamodb.Key{HashKey: key})
 	if ok {
-		glog.V(5).Infof("Succeed delete item : %s", key)
+		log.WithField("key", key).Debug("Succeed delete item")
 		return nil
 	} else {
-		glog.Errorf("Failed to delete item : %s, because of:%s", key, err.Error())
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Failed to delete item")
 		return DeleteErr
 	}
 }
 
 func (self *TKeyAttrStore) Save(key string, attrs ...dynamodb.Attribute) *TError {
-	glog.V(5).Infof("Saving item with key : %s", key)
+	log.WithField("key", key).Debug("Saving item")
 	if ok, err := self.table.PutItem(key, "", attrs); ok {
 		return nil
 	} else {
-		glog.Errorf("Failed to save because : %s", err.Error())
+		log.WithField("error", err.Error()).Error("Failed to save")
 		return SaveErr
 	}
 }
@@ -212,16 +217,19 @@ func (self *TKeyAttrStore) Save(key string, attrs ...dynamodb.Attribute) *TError
 func (self *TKeyAttrStore) Get(key string) (map[string]*dynamodb.Attribute, *TError) {
 	contract.Requiref(key != "", "Empty key is not allowed")
 
-	glog.V(5).Infof("Getting item with pk: %s", key)
+	log.WithField("key", key).Debug("Getting item")
 	if attrMap, err := self.table.GetItem(makePrimaryKey(key)); err != nil {
 		if err == dynamodb.ErrNotFound {
 			return nil, NotFoundErr
 		} else {
-			glog.Errorf("Failed to get an item pk=%s because: %s", key, err.Error())
+			log.WithField("error", err.Error()).Error("Failed to get an item")
 			return nil, LookupErr
 		}
 	} else {
-		glog.V(5).Infof("Succeed item %s fetch, got: %v", key, attrMap)
+		log.WithFields(log.Fields{
+			"key":        key,
+			"attributes": attrMap,
+		}).Debug("Success")
 		return attrMap, nil
 	}
 }
@@ -233,10 +241,10 @@ func (self *TKeyAttrStore) All(startFromKey string, limit int) ([]map[string]*dy
 	}
 	nilAttrComparisons := []dynamodb.AttributeComparison{}
 	if attrMaps, lastKey, err := self.table.ScanPartialLimit(nilAttrComparisons, pk, int64(limit)); err != nil {
-		glog.Errorf("Failed to perform scan because: %s", err.Error())
+		log.WithField("error", err.Error()).Error("Failed to perform scan")
 		return nil, "", LookupErr
 	} else {
-		glog.V(5).Infof("Succeed scan fetch, got: %v records", len(attrMaps))
+		log.WithField("count", len(attrMaps)).Debug("Succeed scan fetch")
 		if lastKey != nil {
 			return attrMaps, lastKey.HashKey, nil
 		} else {
