@@ -695,9 +695,14 @@ func (b *Bucket) UploadSignedURL(path, method, content_type string, expires time
 	if method != "POST" {
 		method = "PUT"
 	}
-	stringToSign := method + "\n\n" + content_type + "\n" + strconv.FormatInt(expire_date, 10) + "\n/" + b.Name + "/" + path
-	fmt.Println("String to sign:\n", stringToSign)
+	stringToSign := method + "\n\n" + content_type + "\n" + strconv.FormatInt(expire_date, 10)
 	a := b.S3.Auth
+	if a.Token() != "" {
+		stringToSign += "\nx-amz-security-token:" + a.Token()
+	}
+	stringToSign += "\nx-amz-server-side-encryption:AES256"
+	stringToSign += "\n/" + b.Name + "/" + path
+	// fmt.Println("String to sign:\n", stringToSign)
 	secretKey := a.SecretKey
 	accessId := a.AccessKey
 	mac := hmac.New(sha1.New, []byte(secretKey))
@@ -716,8 +721,9 @@ func (b *Bucket) UploadSignedURL(path, method, content_type string, expires time
 	params.Add("AWSAccessKeyId", accessId)
 	params.Add("Expires", strconv.FormatInt(expire_date, 10))
 	params.Add("Signature", signature)
+	params.Add("x-amz-server-side-encryption", "AES256")
 	if a.Token() != "" {
-		params.Add("token", a.Token())
+		params.Add("x-amz-security-token", a.Token())
 	}
 
 	signedurl.RawQuery = params.Encode()
