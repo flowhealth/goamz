@@ -1,8 +1,8 @@
 package dynamodb
 
-import simplejson "github.com/bitly/go-simplejson"
 import (
 	"errors"
+	simplejson "github.com/bitly/go-simplejson"
 	"github.com/flowhealth/goamz/aws"
 	"io/ioutil"
 	"log"
