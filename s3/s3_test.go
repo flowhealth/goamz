@@ -379,3 +379,23 @@ func (s *S) TestExistsNotFound403(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(result, check.Equals, false)
 }
+
+func (s *S) TestLocation(c *check.C) {
+	testServer.Response(200, nil, GetLocationUsStandard)
+	expectedUsStandard := "us-east-1"
+
+	bucketUsStandard := s.s3.Bucket("us-east-1")
+	resultUsStandard, err := bucketUsStandard.Location()
+
+	c.Assert(err, check.IsNil)
+	c.Assert(resultUsStandard, check.Equals, expectedUsStandard)
+
+	testServer.Response(200, nil, GetLocationUsWest1)
+	expectedUsWest1 := "us-west-1"
+
+	bucketUsWest1 := s.s3.Bucket("us-west-1")
+	resultUsWest1, err := bucketUsWest1.Location()
+
+	c.Assert(err, check.IsNil)
+	c.Assert(resultUsWest1, check.Equals, expectedUsWest1)
+}
