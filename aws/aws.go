@@ -49,6 +49,7 @@ type Region struct {
 	SDBEndpoint            string
 	SNSEndpoint            string
 	SQSEndpoint            string
+	SESEndpoint            string
 	IAMEndpoint            string
 	ELBEndpoint            string
 	DynamoDBEndpoint       string

@@ -67,12 +67,9 @@ import (
 	"time"
 )
 
-const (
-	endpoint = "https://email.us-east-1.amazonaws.com"
-)
-
 type Server struct {
-	Auth aws.Auth
+	Auth   aws.Auth
+	Region aws.Region
 }
 
 func (s *Server) SendHTMLEmail(from, to, cc, subject, body string) (string, error) {
@@ -113,7 +110,7 @@ func (s *Server) sesGet(data url.Values) (string, error) {
 	headers.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	body := strings.NewReader(data.Encode())
-	req, err := http.NewRequest("POST", endpoint, body)
+	req, err := http.NewRequest("POST", s.Region.SESEndpoint, body)
 	if err != nil {
 		return "", err
 	}
