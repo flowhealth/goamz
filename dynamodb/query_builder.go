@@ -490,6 +490,61 @@ func (q *Query) AddUpdateExpression(attributes []UpdateExpressionAttribute, acti
 	q.buffer["UpdateExpression"] = fmt.Sprintf("%s %s", action, buffer.String())
 }
 
+// Add multiple expressions
+func (q *Query) AddUpdateExpressions(attributes []UpdateExpressionAttribute, actions []string) {
+	var setBuffer bytes.Buffer
+	var removeBuffer bytes.Buffer
+
+	aCopy := []Attribute{}
+	for i, ac := range attributes {
+		if strings.ToUpper(actions[i]) == UPDATE_EXPRESSION_ACTION_SET {
+			tempAttr := ac.Attribute
+			tempAttr.Name = ":v" + ac.Name
+			aCopy = append(aCopy, tempAttr)
+		}
+	}
+
+	q.appendExpressionAttributeValues(aCopy)
+
+	for i, a := range attributes {
+		switch strings.ToUpper(actions[i]) {
+		case UPDATE_EXPRESSION_ACTION_SET:
+			if setBuffer.Len() > 0 {
+				setBuffer.WriteString(", ")
+			}
+
+			if a.Counter == COUNTER_UP && a.Type == TYPE_NUMBER {
+				setBuffer.WriteString(fmt.Sprintf("%v = %v + :v%v", a.Name, a.Name, a.Name))
+			} else if a.Counter == COUNTER_DOWN && a.Type == TYPE_NUMBER {
+				setBuffer.WriteString(fmt.Sprintf("%v = %v - :v%v", a.Name, a.Name, a.Name))
+			} else {
+				if a.Exists == "false" {
+					setBuffer.WriteString(fmt.Sprintf("%v = if_not_exists(%s, :v%v)", a.Name, a.Name, a.Name))
+				} else {
+					setBuffer.WriteString(fmt.Sprintf("%v = :v%v", a.Name, a.Name))
+				}
+			}
+
+		case UPDATE_EXPRESSION_ACTION_REMOVE:
+			if removeBuffer.Len() > 0 {
+				removeBuffer.WriteString(", ")
+			}
+			removeBuffer.WriteString(fmt.Sprintf("%s", a.Name))
+		}
+	}
+
+	bufferStrings := []string{}
+	if setBuffer.Len() > 0 {
+		bufferStrings = append(bufferStrings, fmt.Sprintf("%s %s", UPDATE_EXPRESSION_ACTION_SET, setBuffer.String()))
+	}
+
+	if removeBuffer.Len() > 0 {
+		bufferStrings = append(bufferStrings, fmt.Sprintf("%s %s", UPDATE_EXPRESSION_ACTION_REMOVE, removeBuffer.String()))
+	}
+
+	q.buffer["UpdateExpression"] = strings.Join(bufferStrings, " ")
+}
+
 // Append ConditionExpression to query - see: http://goo.gl/UHDOqu
 func (q *Query) AddConditionExpression(ca *ConditionExpression) error {
 	if condition, ea, err := ca.build(":ca"); err != nil {

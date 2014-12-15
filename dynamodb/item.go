@@ -3,8 +3,8 @@ package dynamodb
 import (
 	"errors"
 	"fmt"
-	"log"
 	simplejson "github.com/bitly/go-simplejson"
+	"log"
 )
 
 type BatchGetItem struct {
@@ -294,6 +294,10 @@ func (t *Table) DeleteAttributesWithUpdateExpression(key *Key, attributes []Upda
 	return t.updateItemWithUpdateExpression(key, attributes, nil, "REMOVE", returnValues)
 }
 
+func (t *Table) ModifyAttributesWithUpdateExpression(key *Key, condition *ConditionExpression, attributes []UpdateExpressionAttribute, actions []string, returnValues string) (bool, map[string]*Attribute, error) {
+	return t.modifyItemsWithUpdateExpression(key, attributes, condition, actions, returnValues)
+}
+
 func (t *Table) modifyAttributes(key *Key, attributes, expected []Attribute, action string) (bool, error) {
 
 	if len(attributes) == 0 {
@@ -331,6 +335,58 @@ func (t *Table) updateItemWithUpdateExpression(key *Key, attributes []UpdateExpr
 	q := NewQuery(t)
 	q.AddKey(t, key)
 	q.AddUpdateExpression(attributes, action)
+
+	if condition != nil {
+		if err := q.AddConditionExpression(condition); err != nil {
+			return false, nil, err
+		}
+	}
+
+	if returnValues != "" {
+		q.AddReturnValues(returnValues)
+	}
+
+	jsonResponse, err := t.Server.queryServer(target("UpdateItem"), q)
+	if err != nil {
+		return false, nil, err
+	}
+
+	json, err := simplejson.NewJson(jsonResponse)
+	if err != nil {
+		return false, nil, err
+	}
+
+	if returnValues != "" && returnValues != "NONE" {
+		itemJson, ok := json.CheckGet("Attributes")
+		if !ok {
+			// We got an empty attributes list from amz.
+			return false, nil, fmt.Errorf("Returned attribute list is empty, despite ReturnValues=%s required some of them", jsonResponse)
+		}
+
+		item, err := itemJson.Map()
+		if err != nil {
+			return false, nil, fmt.Errorf("Unexpected response %s", jsonResponse)
+		}
+
+		return true, parseAttributes(item), nil
+	} else {
+		return true, nil, nil
+	}
+}
+
+func (t *Table) modifyItemsWithUpdateExpression(key *Key, attributes []UpdateExpressionAttribute, condition *ConditionExpression, actions []string, returnValues string) (bool, map[string]*Attribute, error) {
+
+	if len(attributes) == 0 {
+		return false, nil, errors.New("At least one attribute is required.")
+	}
+
+	if len(attributes) != len(actions) {
+		return false, nil, errors.New("Attributes and actions count doesn't match")
+	}
+
+	q := NewQuery(t)
+	q.AddKey(t, key)
+	q.AddUpdateExpressions(attributes, actions)
 
 	if condition != nil {
 		if err := q.AddConditionExpression(condition); err != nil {
