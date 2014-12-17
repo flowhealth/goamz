@@ -4,6 +4,7 @@ import (
 	"errors"
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/flowhealth/goamz/aws"
+	logrus "github.com/flowhealth/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -29,6 +30,8 @@ func NewQuery(queryParts []string) *Query {
 	}
 }
 */
+
+var Tracing = false
 
 // Specific error constants
 var ErrNotFound = errors.New("Item not found")
@@ -73,6 +76,10 @@ func buildError(r *http.Response, jsonBody []byte) error {
 }
 
 func (s *Server) queryServer(target string, query *Query) ([]byte, error) {
+	if Tracing {
+		logrus.WithFields(logrus.Fields{"req": query}).Debug("DynamoDB request")
+	}
+
 	data := strings.NewReader(query.String())
 	hreq, err := http.NewRequest("POST", s.Region.DynamoDBEndpoint+"/", data)
 	if err != nil {
@@ -104,6 +111,10 @@ func (s *Server) queryServer(target string, query *Query) ([]byte, error) {
 	if err != nil {
 		log.Printf("Could not read response body")
 		return nil, err
+	}
+
+	if Tracing {
+		logrus.WithFields(logrus.Fields{"resp": string(body)}).Debug("DynamoDB response")
 	}
 
 	// http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ErrorHandling.html
