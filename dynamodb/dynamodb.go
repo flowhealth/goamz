@@ -2,9 +2,9 @@ package dynamodb
 
 import (
 	"errors"
+	logrus "github.com/Sirupsen/logrus"
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/flowhealth/goamz/aws"
-	logrus "github.com/flowhealth/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
