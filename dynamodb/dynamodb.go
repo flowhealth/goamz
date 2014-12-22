@@ -2,7 +2,7 @@ package dynamodb
 
 import (
 	"errors"
-	logrus "github.com/Sirupsen/logrus"
+	"fmt"
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/flowhealth/goamz/aws"
 	"io/ioutil"
@@ -77,7 +77,7 @@ func buildError(r *http.Response, jsonBody []byte) error {
 
 func (s *Server) queryServer(target string, query *Query) ([]byte, error) {
 	if Tracing {
-		logrus.WithFields(logrus.Fields{"req": query}).Debug("DynamoDB request")
+		fmt.Printf("DynamoDB request: %v\n", query)
 	}
 
 	data := strings.NewReader(query.String())
@@ -114,7 +114,7 @@ func (s *Server) queryServer(target string, query *Query) ([]byte, error) {
 	}
 
 	if Tracing {
-		logrus.WithFields(logrus.Fields{"resp": string(body)}).Debug("DynamoDB response")
+		fmt.Printf("DynamoDB response: %v\n", string(body))
 	}
 
 	// http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ErrorHandling.html
