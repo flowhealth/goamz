@@ -72,12 +72,12 @@ type Server struct {
 	Region aws.Region
 }
 
-func (s *Server) SendHTMLEmail(from, to, replyTo, subject, body string) (string, error) {
+func (s *Server) SendHTMLEmail(from, to, cc, subject, body string) (string, error) {
 	data := make(url.Values)
 	data.Add("Action", "SendEmail")
 	data.Add("Source", from)
 	data.Add("Destination.ToAddresses.member.1", to)
-	data.Add("ReplyToAddresses.member.1", replyTo)
+	data.Add("ReplyToAddresses.member.1", from)
 	data.Add("Message.Subject.Data", subject)
 	//data.Add("Message.Body.Text.Data", body)
 	data.Add("Message.Body.Html.Data", body)
